@@ -70,7 +70,6 @@ const TransactionList = () => {
     };
   }, []);
 
-  // Reaguje na powiadomienia WebSocket przez React Context — niezawodne
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -104,7 +103,7 @@ const TransactionList = () => {
     const errors: { [key: string]: string } = {};
     const { amount, type, tags, notes } = editValues;
 
-    if (!amount || parseFloat(amount.toString()) <= 0) {
+    if (!amount || Number.parseFloat(amount.toString()) <= 0) {
       errors.amount = "Kwota musi być większa od zera.";
     }
 
