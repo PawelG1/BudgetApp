@@ -1,0 +1,487 @@
+{
+  "info": {
+    "name": "PASiR Group API Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Login Test Owner",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "if (pm.response.code === 200) {",
+              "    pm.environment.set(\"jwt_token\", pm.response.text());",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"email\": \"test@owner.com\",\n    \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/auth/login",
+          "protocol": "http",
+          "host": [ "localhost" ],
+          "port": "8080",
+          "path": [ "auth", "login" ]
+        }
+      }
+    },
+    {
+      "name": "2. Create Group",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Group is created\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.data.createGroup).to.have.property(\"id\");",
+              "    pm.expect(jsonData.data.createGroup.name).to.eql(\"Postman Test Group\");",
+              "    pm.environment.set(\"created_group_id\", jsonData.data.createGroup.id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+        ],
+        "body": {
+          "mode": "graphql",
+          "graphql": {
+            "query": "mutation {\n  createGroup(groupDTO: {\n    name: \"Postman Test Group\"\n  }) {\n    id\n    name\n    ownerId\n  }\n}"
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/graphql",
+          "protocol": "http",
+          "host": [ "localhost" ],
+          "port": "8080",
+          "path": [ "graphql" ]
+        }
+      }
+    },
+    {
+      "name": "3. Get myGroups and verify membership",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Verify created group is in myGroups\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    var groups = jsonData.data.myGroups;",
+              "    var createdId = pm.environment.get(\"created_group_id\");",
+              "    var found = groups.find(g => g.id == createdId);",
+              "    pm.expect(found).to.not.be.undefined;",
+              "    pm.expect(found.name).to.eql(\"Postman Test Group\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+        ],
+        "body": {
+          "mode": "graphql",
+          "graphql": {
+            "query": "query {\n  myGroups {\n    id\n    name\n    ownerId\n  }\n}"
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/graphql",
+          "protocol": "http",
+          "host": [ "localhost" ],
+          "port": "8080",
+          "path": [ "graphql" ]
+        }
+      }
+    },
+    {
+      "name": "4. Login Test Different User (Not Owner)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "if (pm.response.code === 200) {",
+              "    pm.environment.set(\"jwt_token_not_owner\", pm.response.text());",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"email\": \"notowner@test.com\",\n    \"password\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/auth/login",
+          "protocol": "http",
+          "host": [ "localhost" ],
+          "port": "8080",
+          "path": [ "auth", "login" ]
+        }
+      }
+    },
+    {
+      "name": "5. Add Member as Non-Owner (Should Fail)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Errors array is present\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property(\"errors\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token_not_owner}}" }
+        ],
+        "body": {
+          "mode": "graphql",
+          "graphql": {
+            "query": "mutation($membershipDTO: MembershipInput!) { addMember(membershipDTO: $membershipDTO) { id groupId userId } }",
+            "variables": "{\"membershipDTO\": {\"groupId\": \"{{created_group_id}}\", \"userEmail\": \"invited@test.com\"}}"
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/graphql",
+          "protocol": "http",
+          "host": [ "localhost" ],
+          "port": "8080",
+          "path": [ "graphql" ]
+        }
+      }
+    },
+    {
+      "name": "6. Add Member as Owner (Should Succeed)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Member is added\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.data.addMember).to.have.property(\"id\");",
+              "    pm.expect(jsonData.data.addMember).to.have.property(\"groupId\");",
+              "    pm.expect(jsonData.data.addMember).to.have.property(\"userId\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+        ],
+        "body": {
+          "mode": "graphql",
+          "graphql": {
+            "query": "mutation($membershipDTO: MembershipInput!) { addMember(membershipDTO: $membershipDTO) { id groupId userId } }",
+            "variables": "{\"membershipDTO\": {\"groupId\": \"{{created_group_id}}\", \"userEmail\": \"invited@test.com\"}}"
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/graphql",
+          "protocol": "http",
+          "host": [ "localhost" ],
+          "port": "8080",
+          "path": [ "graphql" ]
+        }
+      }
+    },
+    {
+      "name": "7. Get Group Members (Should Succeed for Member)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Members list is returned\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    var members = jsonData.data.groupMembers;",
+              "    pm.expect(members).to.be.an(\"array\");",
+              "    pm.expect(members.length).to.be.greaterThan(0);",
+              "    pm.expect(members[0]).to.have.property(\"userEmail\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+        ],
+        "body": {
+          "mode": "graphql",
+          "graphql": {
+            "query": "query($groupId: ID!) { groupMembers(groupId: $groupId) { id userId groupId userEmail } }",
+            "variables": "{\"groupId\": \"{{created_group_id}}\"}"
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/graphql",
+          "protocol": "http",
+          "host": [ "localhost" ],
+          "port": "8080",
+          "path": [ "graphql" ]
+        }
+      }
+    },
+    {
+      "name": "8. Get Group Members as Non-Member (Should Fail)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Errors array is present\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property(\"errors\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token_not_owner}}" }
+        ],
+        "body": {
+          "mode": "graphql",
+          "graphql": {
+            "query": "query($groupId: ID!) { groupMembers(groupId: $groupId) { id userId groupId userEmail } }",
+            "variables": "{\"groupId\": \"{{created_group_id}}\"}"
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/graphql",
+          "protocol": "http",
+          "host": [ "localhost" ],
+          "port": "8080",
+          "path": [ "graphql" ]
+        }
+      }
+    },
+    {
+      "name": "9. Get Group Debts (Should Succeed for Member)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Debts list is returned\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    var debts = jsonData.data.groupDebts;",
+              "    pm.expect(debts).to.be.an(\"array\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+        ],
+        "body": {
+          "mode": "graphql",
+          "graphql": {
+            "query": "query($groupId: ID!) { groupDebts(groupId: $groupId) { id title amount debtor { id email } creditor { id email } } }",
+            "variables": "{\"groupId\": \"{{created_group_id}}\"}"
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/graphql",
+          "protocol": "http",
+          "host": [ "localhost" ],
+          "port": "8080",
+          "path": [ "graphql" ]
+        }
+      }
+    },
+    {
+      "name": "10. Get Group Debts as Non-Member (Should Fail)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Errors array is present\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.have.property(\"errors\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token_not_owner}}" }
+        ],
+        "body": {
+          "mode": "graphql",
+          "graphql": {
+            "query": "query($groupId: ID!) { groupDebts(groupId: $groupId) { id title amount debtor { id email } creditor { id email } } }",
+            "variables": "{\"groupId\": \"{{created_group_id}}\"}"
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/graphql",
+          "protocol": "http",
+          "host": [ "localhost" ],
+          "port": "8080",
+          "path": [ "graphql" ]
+        }
+      }
+    },
+    {
+      "name": "11. Add Group Transaction (INCOME)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Mutation returned true\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.data.addGroupTransaction).to.be.true;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+        ],
+        "body": {
+          "mode": "graphql",
+          "graphql": {
+            "query": "mutation($groupTransactionDTO: GroupTransactionInput!) { addGroupTransaction(groupTransactionDTO: $groupTransactionDTO) }",
+            "variables": "{\"groupTransactionDTO\": {\"groupId\": \"{{created_group_id}}\", \"amount\": 120.0, \"type\": \"INCOME\", \"title\": \"Group Income Test\"}}"
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/graphql",
+          "protocol": "http",
+          "host": [ "localhost" ],
+          "port": "8080",
+          "path": [ "graphql" ]
+        }
+      }
+    },
+    {
+      "name": "12. Verify Debts after INCOME Transaction",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Debts are created correctly\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    var debts = jsonData.data.groupDebts;",
+              "    // Find the debt we just created",
+              "    var testDebt = debts.find(d => d.title === \"Group Income Test\");",
+              "    pm.expect(testDebt).to.not.be.undefined;",
+              "    // 120 / 2 members (owner + 1 invited) = 60 per user",
+              "    // But wait, the service divides by ALL members (owner + invited = 2)",
+              "    // So 120 / 2 = 60. One debt should be created for the other user.",
+              "    pm.expect(testDebt.amount).to.eql(60.0);",
+              "    // Current user (owner) should be debtor",
+              "    pm.expect(testDebt.debtor.email).to.eql(\"test@owner.com\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+        ],
+        "body": {
+          "mode": "graphql",
+          "graphql": {
+            "query": "query($groupId: ID!) { groupDebts(groupId: $groupId) { id title amount debtor { id email } creditor { id email } } }",
+            "variables": "{\"groupId\": \"{{created_group_id}}\"}"
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8080/graphql",
+          "protocol": "http",
+          "host": [ "localhost" ],
+          "port": "8080",
+          "path": [ "graphql" ]
+        }
+      }
+    }
+  ]
+}

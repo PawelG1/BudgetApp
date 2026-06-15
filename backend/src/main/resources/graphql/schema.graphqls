@@ -1,0 +1,112 @@
+type Query {
+    transactions: [Transaction]
+    balance(days: Float): Balance
+    userBalance(days: Float): Balance
+    groups: [Group!]!
+    myGroups: [Group]
+    groupMembers(groupId: ID!): [Membership!]!
+    groupDebts(groupId: ID!): [Debt!]!
+}
+
+type Mutation {
+    addTransaction(transactionDTO: TransactionInput!): Transaction
+    updateTransaction(id: ID!, transactionDTO: TransactionInput!): Transaction
+    deleteTransaction(id: ID!): Boolean
+
+    createGroup(groupDTO: GroupInput!): Group!
+    deleteGroup(id: ID!): Boolean!
+    addMember(membershipDTO: MembershipInput!): Membership!
+    removeMember(groupId: ID!, userEmail: String!): Boolean!
+
+    createDebt(debtDTO: DebtInput!): Debt!
+    deleteDebt(debtId: ID!): Boolean!
+    markDebtAsPaid(debtId: ID!): Debt!
+    confirmDebtPayment(debtId: ID!): Debt!
+
+    addGroupTransaction(groupTransactionDTO: GroupTransactionInput!): Boolean!
+}
+
+type Transaction {
+    id: ID!
+    amount: Float!
+    type: String!
+    tags: String!
+    notes: String
+    timestamp: String
+}
+
+type Balance {
+    totalIncome: Float!
+    totalExpense: Float!
+    balance: Float!
+}
+
+#input type corresoponding to the class TransactionDTO
+input TransactionInput {
+    amount: Float!
+    type: String!
+    tags: String!
+    notes: String
+    timestamp: String
+}
+
+type User{
+    id: ID!
+    name: String!
+    email: String!
+}
+
+type Group{
+    id: ID!
+    name: String!
+    ownerId: ID!
+}
+
+input GroupInput {
+    name: String!
+}
+
+input GroupTransactionInput {
+    groupId: ID!
+    amount: Float!
+    type: String! # "INCOME" or "EXPENSE"
+    title: String!
+    selectedUserIds: [ID!]
+}
+
+type BalanceDTO{
+    totalIncome: Float!
+    totalExpense: Float!
+    balance: Float!
+}
+
+type Membership {
+    id: ID!
+    userId: ID!
+    groupId: ID!
+    userEmail: String!
+}
+
+input MembershipInput {
+    groupId: ID!
+    userEmail: String!
+}
+
+type Debt{
+    id: ID!
+    amount: Float!
+    title: String!
+    paidByDebtor: Boolean!
+    confirmedByCreditor: Boolean!
+    debtor: User!
+    creditor: User!
+    group: Group!
+}
+
+input DebtInput {
+    debtorId: ID!
+    creditorId: ID!
+    groupId: ID!
+    amount: Float!
+    title: String!
+}
